@@ -1,0 +1,52 @@
+{
+  "common": {
+    "clientId": "mqttx_fc08b849",
+    "username": "your-username",
+    "password": "your-password",
+    "clean": true,
+    "keepalive": 60,
+    "connectTimeout": 10000,
+    "reconnectPeriod": 0,
+    "will": {
+      "topic": "client/status",
+      "payload": "offline",
+      "qos": 1,
+      "retain": false
+    }
+  },
+  "mqtt3": {
+    "protocolVersion": 4
+  },
+  "mqtt5": {
+    "protocolVersion": 5,
+    "properties": {
+      "sessionExpiryInterval": 0,
+      "receiveMaximum": 50,
+      "maximumPacketSize": 1048576,
+      "topicAliasMaximum": 10,
+      "requestResponseInformation": false,
+      "requestProblemInformation": false,
+      "userProperties": {
+        "appId": "my-app",
+        "source": "mqttjs"
+      }
+    },
+    "will": {
+      "topic": "client/status",
+      "payload": "offline",
+      "qos": 1,
+      "retain": false,
+      "properties": {
+        "willDelayInterval": 5,
+        "messageExpiryInterval": 60,
+        "contentType": "text/plain",
+        "responseTopic": "client/response",
+        "correlationData": "MTIz",
+        "payloadFormatIndicator": 1,
+        "userProperties": {
+          "reason": "unexpected-disconnect"
+        }
+      }
+    }
+  }
+}
