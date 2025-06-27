@@ -1,14 +1,23 @@
-export  interface ConnectionState {
-  isConnected: boolean
-  isConnecting: boolean
-  serverUrl: string
-  username: string
-  password: string
-  error: string | null
+import {
+  MqttConnectionOptions,
+  SubscribeOptions,
+  PublishOptions,
+} from "./mqtt";
+export interface ConnectionState {
+  isConnected: boolean;
+  isConnecting: boolean;
+  serverUrl: string;
+  username: string;
+  password: string;
+  error: string | null;
   // api: NanoMQAPI | null
-  connect: (url: string, username: string, password: string) => Promise<void>
-  disconnect: () => void
+  connect: (url: string, username: string, password: string) => Promise<void>;
+  disconnect: () => void;
 }
-export interface ConnectionProviderProps {
-  children: ReactNode
+
+export interface SavedConnection {
+  id: string;
+  name: string; // Tên hiển thị của kết nối
+  options: MqttConnectionOptions;
+  subscriptions: SubscribeOptions[]; // Các topic đã subscribe cho kết nối này
 }

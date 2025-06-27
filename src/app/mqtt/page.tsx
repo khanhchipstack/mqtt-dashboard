@@ -1,19 +1,16 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import ConnectionForm from "@/components/clients/mqtt/ConnectionForm";
-import SubscribeSection from "@/components/clients/mqtt/SubscribeSection";
-import PublishSection from "@/components/clients/mqtt/PublishSection";
-import MessageList from "@/components/clients/mqtt/MessageList";
-import AppSidebar from "@/components/dashboard/app-sidebar";
-import { useMqttClient } from "@/hooks/mqtt/useMqttClient";
-import { useConnectionStore } from "@/hooks/mqtt/useConnectionStore";
-import { SavedConnection } from "@/types/mqtt/connection";
-import { MqttConnectionOptions, SubscribeOptions } from "@/types/mqtt/mqtt";
-import { ToastContainer } from "react-toastify";
+import SubscribeSection from "@/components/mqtt/SubscribeSection";
+import AppSidebar from "@/components/connection/app-sidebar";
+import { useMqttClient } from "@/hooks/useMqttClient";
+import { useConnectionStore } from "@/hooks/useConnectionStore";
+import { SavedConnection } from "@/types/connection";
+import { MqttConnectionOptions, SubscribeOptions } from "@/types/mqtt";
 import "react-toastify/dist/ReactToastify.css";
-import { Layout } from "@/components/layout";
+import { Layout } from "@/components/layout/layout";
 import { MessageCircleMore } from "lucide-react";
+import MqttChatBox from "@/components/mqtt/MqttChat";
 
 export default function MqttClientPage() {
   const {
@@ -39,97 +36,159 @@ export default function MqttClientPage() {
   } = useMqttClient();
 
   const currentConnection = getSelectedConnection();
-  const [isConnectionFormExpanded, setIsConnectionFormExpanded] = useState(true);
-  const [selectedTopic, setSelectedTopic] = useState<SubscribeOptions | null>(null);
-  const [newConnectionData, setNewConnectionData] = useState<Omit<SavedConnection, "id"> | null>(null);
+  const [isConnectionFormExpanded, setIsConnectionFormExpanded] =
+    useState(true);
+  const [selectedTopic, setSelectedTopic] = useState<SubscribeOptions | null>(
+    null
+  );
+  const [newConnectionData, setNewConnectionData] = useState<Omit<
+    SavedConnection,
+    "id"
+  > | null>(null);
 
-  const connectionForForm = selectedConnectionId === null ? newConnectionData : currentConnection;
+  const connectionForForm =
+    selectedConnectionId === null ? newConnectionData : currentConnection;
 
   useEffect(() => {
     if (!currentConnection && selectedConnectionId !== null) {
       setNewConnectionData(null);
       setIsConnectionFormExpanded(true);
-    } else if (connectionStatus === "Connected" && isConnectionFormExpanded && selectedConnectionId !== null) {
+    } else if (
+      connectionStatus === "Connected" &&
+      isConnectionFormExpanded &&
+      selectedConnectionId !== null
+    ) {
       setIsConnectionFormExpanded(false);
     } else if (selectedConnectionId === null) {
       setIsConnectionFormExpanded(true);
     }
-  }, [connectionStatus, isConnectionFormExpanded, currentConnection, selectedConnectionId]);
+  }, [
+    connectionStatus,
+    isConnectionFormExpanded,
+    currentConnection,
+    selectedConnectionId,
+  ]);
 
-  const handleSaveNewConnection = useCallback((newConn: Omit<SavedConnection, "id">) => {
-    addConnection(newConn);
-    setNewConnectionData(null);
-    selectConnection(newConn.id);
-    setIsConnectionFormExpanded(false);
-  }, [addConnection, selectConnection]);
-
-  const handleUpdateConnection = useCallback((id: string, updatedFields: Partial<SavedConnection>) => {
-    updateConnection(id, updatedFields);
-    if (selectedConnectionId === id && connectionStatus !== "Disconnected") {
-      disconnect();
-      setTimeout(() => {
-        const latestConnection = getSelectedConnection();
-        if (latestConnection?.options) {
-          connect(latestConnection.options, latestConnection.subscriptions);
-        }
-      }, 500);
-    }
-    setIsConnectionFormExpanded(false);
-  }, [updateConnection, selectedConnectionId, connectionStatus, disconnect, connect, getSelectedConnection]);
-
-  const handleConnectSelected = useCallback((options: MqttConnectionOptions) => {
-    if (selectedConnectionId === null && newConnectionData) {
-      const connToSave: Omit<SavedConnection, "id"> = { ...newConnectionData, options };
-      addConnection(connToSave);
+  const handleSaveNewConnection = useCallback(
+    (newConn: Omit<SavedConnection, "id">) => {
+      addConnection(newConn);
       setNewConnectionData(null);
-      setTimeout(() => {
-        const addedConn = connections.find(c => c.options.clientId === options.clientId);
-        if (addedConn) {
-          connect(addedConn.options, addedConn.subscriptions);
-          selectConnection(addedConn.id);
-        }
-      }, 100);
-    } else if (currentConnection) {
-      connect(options, currentConnection.subscriptions);
-    } else {
-      alert("Please select or create a connection first.");
-    }
-  }, [currentConnection, connect, selectedConnectionId, newConnectionData, addConnection, connections, selectConnection]);
+      selectConnection(newConn.id);
+      setIsConnectionFormExpanded(false);
+    },
+    [addConnection, selectConnection]
+  );
 
-  const handleSubscribeTopic = useCallback((options: SubscribeOptions) => {
-    subscribe(options);
-    if (currentConnection) {
-      updateConnection(currentConnection.id, {
-        subscriptions: [...currentConnection.subscriptions, options],
-      });
-    } else if (selectedConnectionId === null && newConnectionData) {
-      setNewConnectionData(prev => prev ? { ...prev, subscriptions: [...prev.subscriptions, options] } : null);
-    }
-  }, [subscribe, currentConnection, updateConnection, selectedConnectionId, newConnectionData]);
+  const handleUpdateConnection = useCallback(
+    (id: string, updatedFields: Partial<SavedConnection>) => {
+      updateConnection(id, updatedFields);
+      if (selectedConnectionId === id && connectionStatus !== "Disconnected") {
+        disconnect();
+        setTimeout(() => {
+          const latestConnection = getSelectedConnection();
+          if (latestConnection?.options) {
+            connect(latestConnection.options, latestConnection.subscriptions);
+          }
+        }, 500);
+      }
+      setIsConnectionFormExpanded(false);
+    },
+    [
+      updateConnection,
+      selectedConnectionId,
+      connectionStatus,
+      disconnect,
+      connect,
+      getSelectedConnection,
+    ]
+  );
 
-  const handleUnsubscribeTopic = useCallback((id: string, topic: string) => {
-    unsubscribe(id, topic);
-    if (currentConnection) {
-      updateConnection(currentConnection.id, {
-        subscriptions: currentConnection.subscriptions.filter(sub => sub.id !== id),
-      });
-    } else if (selectedConnectionId === null && newConnectionData) {
-      setNewConnectionData(prev => prev ? {
-        ...prev,
-        subscriptions: prev.subscriptions.filter(sub => sub.id !== id),
-      } : null);
-    }
-    if (selectedTopic?.id === id) setSelectedTopic(null);
-  }, [unsubscribe, currentConnection, updateConnection, selectedTopic, selectedConnectionId, newConnectionData]);
+  const handleConnectSelected = useCallback(
+    (options: MqttConnectionOptions) => {
+      if (selectedConnectionId === null && newConnectionData) {
+        alert("Please select or create a connection first.");
+      } else if (currentConnection) {
+        connect(options, currentConnection.subscriptions);
+      } else {
+        alert("Please select or create a connection first.");
+      }
+    },
+    [
+      currentConnection,
+      connect,
+      selectedConnectionId,
+      newConnectionData,
+      addConnection,
+      connections,
+      selectConnection,
+    ]
+  );
+
+  const handleSubscribeTopic = useCallback(
+    (options: SubscribeOptions) => {
+      subscribe(options);
+      if (currentConnection) {
+        updateConnection(currentConnection.id, {
+          subscriptions: [...currentConnection.subscriptions, options],
+        });
+      } else if (selectedConnectionId === null && newConnectionData) {
+        setNewConnectionData((prev) =>
+          prev
+            ? { ...prev, subscriptions: [...prev.subscriptions, options] }
+            : null
+        );
+      }
+    },
+    [
+      subscribe,
+      currentConnection,
+      updateConnection,
+      selectedConnectionId,
+      newConnectionData,
+    ]
+  );
+
+  const handleUnsubscribeTopic = useCallback(
+    (id: string, topic: string) => {
+      unsubscribe(id, topic);
+      if (currentConnection) {
+        updateConnection(currentConnection.id, {
+          subscriptions: currentConnection.subscriptions.filter(
+            (sub) => sub.id !== id
+          ),
+        });
+      } else if (selectedConnectionId === null && newConnectionData) {
+        setNewConnectionData((prev) =>
+          prev
+            ? {
+                ...prev,
+                subscriptions: prev.subscriptions.filter(
+                  (sub) => sub.id !== id
+                ),
+              }
+            : null
+        );
+      }
+      if (selectedTopic?.id === id) setSelectedTopic(null);
+    },
+    [
+      unsubscribe,
+      currentConnection,
+      updateConnection,
+      selectedTopic,
+      selectedConnectionId,
+      newConnectionData,
+    ]
+  );
 
   useEffect(() => {
     if (selectedConnectionId === null) {
       setNewConnectionData({
         name: `New Connection ${new Date().toLocaleTimeString()}`,
         options: {
-          protocol: "mqtt",
-          host: "broker.emqx.io",
-          port: 1883,
+          protocol: "ws",
+          host: "localhost",
+          port: 9003,
           clientId: `mqttjs_${Math.random().toString(16).substr(2, 8)}`,
           clean: true,
           keepalive: 60,
@@ -148,32 +207,35 @@ export default function MqttClientPage() {
   }, [selectedConnectionId, currentConnection, connectionStatus]);
 
   useEffect(() => {
-    if (!currentConnection && connectionStatus !== "Disconnected" && selectedConnectionId !== null) {
+    if (
+      !currentConnection &&
+      connectionStatus !== "Disconnected" &&
+      selectedConnectionId !== null
+    ) {
       disconnect();
     }
   }, [currentConnection, connectionStatus, disconnect, selectedConnectionId]);
 
-  const toggleConnectionForm = () => setIsConnectionFormExpanded(prev => !prev);
+  const toggleConnectionForm = () =>
+    setIsConnectionFormExpanded((prev) => !prev);
 
-  const subscriptionsToDisplay = selectedConnectionId === null ? newConnectionData?.subscriptions || [] : activeSubscriptions;
+  const subscriptionsToDisplay =
+    selectedConnectionId === null
+      ? newConnectionData?.subscriptions || []
+      : activeSubscriptions;
 
   return (
     <Layout>
-      <div className="flex flex-col h-screen bg-gray-950 text-white">
+      <div className="flex h-screen bg-gray-950 text-white">
+        {/* Sidebar chiếm chiều ngang cố định */}
         <AppSidebar
           connections={connections}
           selectedConnectionId={selectedConnectionId}
-          onSelectConnection={id => {
+          onSelectConnection={(id) => {
             selectConnection(id);
             setNewConnectionData(null);
           }}
-          onAddConnection={() => {
-            selectConnection(null);
-            disconnect();
-            setIsConnectionFormExpanded(true);
-            setSelectedTopic(null);
-          }}
-          onDeleteConnection={id => {
+          onDeleteConnection={(id) => {
             deleteConnection(id);
             if (id === selectedConnectionId) {
               selectConnection(null);
@@ -185,15 +247,13 @@ export default function MqttClientPage() {
           connectionStatus={connectionStatus}
           onSave={handleSaveNewConnection}
           onUpdate={handleUpdateConnection}
-          isExpanded={isConnectionFormExpanded}
-          onToggleExpand={toggleConnectionForm}
         />
 
-        {/* Main Area */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* Khu vực chính */}
+        <div className="flex flex-1 flex-col overflow-hidden">
           {connectionForForm && (
-            <>
-              {/* Left - Subscriptions */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Subscriptions */}
               <div className="w-72 bg-gray-900 border-r border-gray-800 overflow-y-auto">
                 <SubscribeSection
                   onSubscribe={handleSubscribeTopic}
@@ -205,45 +265,35 @@ export default function MqttClientPage() {
                 />
               </div>
 
-              {/* Right - Messages & Publish */}
-              <div className="flex-1 flex flex-col p-4 overflow-auto">
-                <div className="flex flex-col lg:flex-row gap-4 h-full">
-                  {/* Messages */}
-                  <div className="flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
-                    <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
-                      <MessageCircleMore className="text-cyan-300 mr-2" /> Messages
-                      {selectedTopic ? (
-                        <span className="ml-2 truncate text-yellow-400">{selectedTopic.alias || selectedTopic.topic}</span>
-                      ) : (
-                        <span className="ml-2 text-gray-500">(No Topic Selected)</span>
-                      )}
-                    </h3>
-                    <div className="flex-1 overflow-y-auto">
-                      <MessageList messages={receivedMessages} filterTopic={selectedTopic?.topic} />
-                    </div>
-                  </div>
+              {/* Messages & Publish */}
+              <div className="flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
+                <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
+                  <MessageCircleMore className="text-cyan-300 mr-2" />
+                  Chat
+                  {selectedTopic ? (
+                    <span className="ml-2 truncate text-yellow-400">
+                      {selectedTopic.alias || selectedTopic.topic}
+                    </span>
+                  ) : (
+                    <span className="ml-2 text-gray-500">
+                      (No Topic Selected)
+                    </span>
+                  )}
+                </h3>
 
-                  {/* Publish */}
-                  <div className="w-full lg:w-1/3 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg">
-                    <PublishSection
-                      onPublish={publish}
-                      isConnected={connectionStatus === "Connected"}
-                      protocolVersion={currentProtocolVersion}
-                      selectedTopic={selectedTopic}
-                    />
-                  </div>
+                <div className="flex-1 overflow-hidden">
+                  <MqttChatBox
+                    messages={receivedMessages}
+                    onPublish={publish}
+                    isConnected={connectionStatus === "Connected"}
+                    protocolVersion={currentProtocolVersion}
+                    selectedTopic={selectedTopic}
+                  />
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
-
-        <ToastContainer
-          position="bottom-right"
-          autoClose={5000}
-          pauseOnHover
-          theme="dark"
-        />
       </div>
     </Layout>
   );

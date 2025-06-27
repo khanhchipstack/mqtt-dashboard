@@ -2,19 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { NanoMQApiService } from "@/lib/mock-data"
-// import { useConnection } from "@/components/connection-provider"
-import type { NodeData, BrokerData, MetricsData, ClientData, PrometheusMetrics } from "@/lib/nanomq-api"
+import { PrometheusMetrics } from "@/types/metrics"
 
 interface DashboardData {
-  nodes: NodeData[]
-  brokers: BrokerData[]
-  metrics: MetricsData
-  clients: ClientData[]
-  prometheus: PrometheusMetrics
+  clientLatest: number
+  prometheusLatest: PrometheusMetrics
+  clientHistory: { timestamp: string; count: number }[]
+  prometheusHistory: PrometheusMetrics[]
 }
 
 export function useDashboardData() {
-  // const { api } = useConnection()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,30 +23,16 @@ export function useDashboardData() {
     setError(null)
 
     try {
-      // Real API calls (commented out)
-      // const [nodes, brokers, metrics, clients, prometheus] = await Promise.all([
-      //   api.getNodes(),
-      //   api.getBrokers(),
-      //   api.getMetrics(),
-      //   api.getClients(),
-      //   api.getPrometheusMetrics(),
-      // ])
+      // Chỉ gọi 1 API duy nhất
+      const response = await mockService.getDashboardData()
 
-      // Mock API calls
-      const [nodes, brokers, metrics, clients, prometheus] = await Promise.all([
-        mockService.getNodes(),
-        mockService.getBrokers(),
-        mockService.getMetrics(),
-        mockService.getClients(),
-        mockService.getPrometheusMetrics(),
-      ])
-
+      const clientHistory = response.client_count || []
+      const prometheusHistory = response.prometheus || []
       setData({
-        nodes,
-        brokers,
-        metrics,
-        clients,
-        prometheus,
+        clientLatest: clientHistory[0]?.count ?? 0,
+        prometheusLatest: prometheusHistory[0] ?? {},
+        clientHistory,
+        prometheusHistory,
       })
     } catch (err) {
       setError("Failed to fetch dashboard data")

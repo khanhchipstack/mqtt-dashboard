@@ -1,17 +1,21 @@
 "use client"
 
-import { MetricCard } from "@/components/metric-card"
-import type { PrometheusMetrics } from "@/lib/nanomq-api"
+import { MetricCard } from "@/components/ui/metric-card"
+import { PrometheusMetrics } from "@/types/metrics"
 
 interface DashboardStatsProps {
-  prometheus: PrometheusMetrics
+  prometheus: PrometheusMetrics,
+  listPrometheus: PrometheusMetrics[]
 }
 
-export function DashboardStats({ prometheus }: DashboardStatsProps) {
+export function DashboardStats({ prometheus, listPrometheus }: DashboardStatsProps) {
+  const bytesToGB=(bytes: number, precision = 2): number =>{
+    return +(bytes / (1024 ** 2)).toFixed(precision)
+  }
   return (
     <>
       {/* Main Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="Clients đã kết nối"
           subtitle="Tổng cộng"
@@ -19,6 +23,7 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           previousValue={prometheus.connections_max}
           trend="stable"
           color="blue"
+          trendData={listPrometheus.map(p => p.connections_count)}
         />
 
         <MetricCard
@@ -28,6 +33,7 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           previousValue={prometheus.sessions_max}
           trend="stable"
           color="green"
+          trendData={listPrometheus.map(p => p.sessions_count)}
         />
 
         <MetricCard
@@ -37,7 +43,35 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           previousValue={prometheus.topics_max}
           trend="stable"
           color="purple"
+          trendData={listPrometheus.map(p => p.topics_count)}
         />
+      <MetricCard
+          title="Subscribers"
+          value={prometheus.subscribers_count}
+          subtitle="Tổng cộng"
+          previousValue={prometheus.subscribers_max}
+          trend="stable"
+          color="blue"
+          trendData={listPrometheus.map(p => p.subscribers_count)}
+        />
+           {/* <MetricCard
+          title="CPU"
+          value={prometheus.cpu_usage}
+          subtitle="Tổng cộng"
+          previousValue={prometheus.cpu_usage_max}
+          trend="stable"
+          color="green"
+          trendData={listPrometheus.map(p => p.cpu_usage)}
+        />
+           <MetricCard
+          title="Memory"
+          value={`${bytesToGB(prometheus.memory_usage)} MB`}
+          subtitle="Tổng cộng"
+          previousValue={`${bytesToGB(prometheus.memory_usage_max)} MB`}
+          trend="stable"
+          color="purple"
+          trendData={listPrometheus.map(p => p.memory_usage)}
+        /> */}
       </div>
 
       {/* Message Statistics */}
@@ -50,6 +84,7 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           trend="up"
           color="blue"
           isLarge
+          trendData={listPrometheus.map(p => p.messages_received)}
         />
 
         <MetricCard
@@ -60,6 +95,7 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           trend="up"
           color="green"
           isLarge
+          trendData={listPrometheus.map(p => p.messages_sent)}
         />
 
         <MetricCard
@@ -70,6 +106,7 @@ export function DashboardStats({ prometheus }: DashboardStatsProps) {
           trend="down"
           color="orange"
           isLarge
+          trendData={listPrometheus.map(p => p.messages_dropped)}
         />
       </div>
     </>

@@ -6,9 +6,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "NanoMQ Admin Dashboard",
-  description: "NanoMQ MQTT Broker Administration Dashboard",
-    generator: 'v0.dev'
+  title: "FreeMQTT by Chipstack",
+  description: "FreeMQTT by Chipstack",
 }
 
 export default function RootLayout({
@@ -18,7 +17,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>{children}</body>
-    </html>
+    <head>
+      <link rel="icon" type="image/png" href="/images/logo.png" />
+    </head>
+    <body className={inter.className}>{children}</body>
+  </html>
   )
 }
