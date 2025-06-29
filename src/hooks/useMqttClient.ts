@@ -61,9 +61,7 @@ export const useMqttClient = (): MqttClientHookResult => {
       setReceivedMessages([]);
       setActiveSubscriptions([]); // Clear subscriptions when connecting to a new broker
 
-      // const connectUrl = `${options.protocol}://${options.host}:${options.port}`;
-      const connectUrl = `${options.protocol}://${window.location.host}/api/mqtt`;
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const connectUrl = `${options.protocol}://${options.host}:${options.port}`;
       
       // --- Start: Construct MQTT.js IClientOptions for MQTT 5.0 Properties ---
       let mqtt5ConnectProperties: Mqtt5ConnectProperties | undefined =
@@ -166,8 +164,8 @@ export const useMqttClient = (): MqttClientHookResult => {
       
 
       try {
-        const mqttClient = mqtt.connect(`${protocol}://${window.location.host}/api/mqtt`);
-        // const mqttClient = mqtt.connect(connectUrl, mqttOptions);
+        // const mqttClient = mqtt.connect(`${protocol}://${window.location.host}/api/mqtt`);
+        const mqttClient = mqtt.connect(connectUrl, mqttOptions);
         console.log({
           connectUrl,
           mqttOptions,

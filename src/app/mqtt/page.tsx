@@ -186,7 +186,7 @@ export default function MqttClientPage() {
       setNewConnectionData({
         name: `New Connection ${new Date().toLocaleTimeString()}`,
         options: {
-          protocol: "ws",
+          protocol: "wss",
           host: "localhost",
           port: 9003,
           clientId: `mqttjs_${Math.random().toString(16).substr(2, 8)}`,

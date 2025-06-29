@@ -75,8 +75,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 }) => {
   // --- State for Connection Options ---
   const [name, setName] = useState("");
-  const [host, setHost] = useState("haplocalhostroxy");
-  const [port, setPort] = useState<number>(9003);
+  const [host, setHost] = useState("freemqtt.chipstack.vn");
+  const [port, setPort] = useState<number>(8884);
   const [clientId, setClientId] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -133,7 +133,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [willUserProperties, setWillUserProperties] = useState<string>(""); // Stored as JSON string
 
   // SSL/TLS Certificates
-  const [rejectUnauthorized, setRejectUnauthorized] = useState(true);
+  const [rejectUnauthorized, setRejectUnauthorized] = useState(false);
   const [ca, setCa] = useState("");
   const [cert, setCert] = useState("");
   const [key, setKey] = useState("");
@@ -258,8 +258,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   useEffect(() => {
     if (connection) {
       setName(connection.name);
-      setHost(connection.options.host || "localhost");
-      setPort(connection.options.port || 9003);
+      setHost(connection.options.host || "freemqtt.chipstack.vn");
+      setPort(connection.options.port || 8884);
       setClientId(connection.options.clientId || generateClientId());
       setUsername(connection.options.username || "");
       setPassword(connection.options.password || "");
@@ -312,15 +312,15 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       ); // Stringify object back to JSON
 
       // SSL/TLS Certificates
-      setRejectUnauthorized(connection.options.rejectUnauthorized ?? true);
+      setRejectUnauthorized(connection.options.rejectUnauthorized ?? false);
       setCa(connection.options.ca || "");
       setCert(connection.options.cert || "");
       setKey(connection.options.key || "");
     } else {
       // Reset to default values for a new connection
       setName(`New Connection ${new Date().toLocaleTimeString()}`);
-      setHost("localhost");
-      setPort(9003);
+      setHost("freemqtt.chipstack.vn");
+      setPort(8884);
       setClientId(generateClientId());
       setUsername("");
       setPassword("");
@@ -353,7 +353,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       setWillPayloadFormatIndicator(undefined);
       setWillUserProperties("");
 
-      setRejectUnauthorized(true);
+      setRejectUnauthorized(false);
       setCa("");
       setCert("");
       setKey("");
