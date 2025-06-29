@@ -226,35 +226,37 @@ export default function MqttClientPage() {
 
   return (
     <Layout>
-      <div className="flex h-screen bg-gray-950 text-white">
+      <div className="flex flex-col h-screen bg-gray-950 text-white md:flex-row">
         {/* Sidebar chiếm chiều ngang cố định */}
-        <AppSidebar
-          connections={connections}
-          selectedConnectionId={selectedConnectionId}
-          onSelectConnection={(id) => {
-            selectConnection(id);
-            setNewConnectionData(null);
-          }}
-          onDeleteConnection={(id) => {
-            deleteConnection(id);
-            if (id === selectedConnectionId) {
-              selectConnection(null);
+        <div>
+          <AppSidebar
+            connections={connections}
+            selectedConnectionId={selectedConnectionId}
+            onSelectConnection={(id) => {
+              selectConnection(id);
               setNewConnectionData(null);
-            }
-          }}
-          onConnect={handleConnectSelected}
-          onDisconnect={disconnect}
-          connectionStatus={connectionStatus}
-          onSave={handleSaveNewConnection}
-          onUpdate={handleUpdateConnection}
-        />
+            }}
+            onDeleteConnection={(id) => {
+              deleteConnection(id);
+              if (id === selectedConnectionId) {
+                selectConnection(null);
+                setNewConnectionData(null);
+              }
+            }}
+            onConnect={handleConnectSelected}
+            onDisconnect={disconnect}
+            connectionStatus={connectionStatus}
+            onSave={handleSaveNewConnection}
+            onUpdate={handleUpdateConnection}
+          />
+        </div>
 
         {/* Khu vực chính */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {connectionForForm && (
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 overflow-hidden md:flex-row">
               {/* Subscriptions */}
-              <div className="w-72 bg-gray-900 border-r border-gray-800 overflow-y-auto">
+              <div className="w-full md:w-72 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 overflow-y-auto">
                 <SubscribeSection
                   onSubscribe={handleSubscribeTopic}
                   isConnected={connectionStatus === "Connected"}
