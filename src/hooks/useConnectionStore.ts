@@ -1,83 +1,69 @@
-// src/hooks/mqtt/useConnectionStore.ts
 "use client";
 
 import { create } from "zustand";
 import { SavedConnection } from "@/types/connection";
-import { generateUniqueId } from "@/utils/idGenerator";
 import { toast } from "react-toastify";
 import { useConfirmDialog } from "./useConfirmDialog";
 
-const LOCAL_STORAGE_KEY = "mqtt_connections";
+const LOCAL_STORAGE_KEY = "mqtt_connection";
 
 interface ConnectionStore {
-  connections: SavedConnection[];
-  selectedConnectionId: string | null;
-
-  addConnection: (conn: Omit<SavedConnection, "id">) => void;
-  updateConnection: (
-    id: string,
-    updatedFields: Partial<SavedConnection>
-  ) => void;
-  deleteConnection: (id: string) => void;
-  selectConnection: (id: string | null) => void;
-  getSelectedConnection: () => SavedConnection | undefined;
+  connection: SavedConnection | null;
+  setConnection: (conn: SavedConnection) => void;
+  updateConnection: (updatedFields: Partial<SavedConnection>) => void;
+  deleteConnection: () => void;
+  getConnection: () => SavedConnection | null;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set, get) => ({
-  connections: [],
-  selectedConnectionId: null,
+  connection: null,
 
-  addConnection: (conn) => {
-    if (get().connections.length > 0) {
-      toast.error("Chỉ được lưu tối đa 1 connection!");
+  setConnection: (conn) => {
+    if (get().connection) {
+      toast.error("Chỉ được lưu một kết nối duy nhất!");
       return;
     }
     
-    const newConn: SavedConnection = { ...conn, id: generateUniqueId() };
-    const updated = [newConn];  // Chỉ có 1 phần tử
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    set({ connections: updated, selectedConnectionId: newConn.id });
-    toast.success(`Connection "${newConn.name}" saved!`);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(conn));
+    set({ connection: conn });
+    toast.success(`Kết nối "${conn.name}" đã được lưu!`);
   },
-  
-  updateConnection: (id, updatedFields) => {
-    const updated = get().connections.map((c) =>
-      c.id === id ? { ...c, ...updatedFields } : c
-    );
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    set({ connections: updated });
-    toast.success("Connection updated!");
-  },
-  
 
-  deleteConnection: (id) => {
-    const toDelete = get().connections.find((c) => c.id === id);
-    if (!toDelete) return;
-  
+  updateConnection: (updatedFields) => {
+    const current = get().connection;
+    if (!current) {
+      toast.error("Không có kết nối để cập nhật!");
+      return;
+    }
+    
+    const updated = { ...current, ...updatedFields };
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    set({ connection: updated });
+    toast.success("Kết nối đã được cập nhật!");
+  },
+
+  deleteConnection: () => {
+    const current = get().connection;
+    if (!current) {
+      toast.error("Không có kết nối để xóa!");
+      return;
+    }
+
     const { openConfirm } = useConfirmDialog.getState();
-  
+
     openConfirm({
       title: "Xóa kết nối",
-      description: `Bạn có chắc muốn xóa kết nối "${toDelete.name || "Unnamed"}"?`,
+      description: `Bạn có chắc muốn xóa kết nối "${current.name || "Unnamed"}"?`,
       onConfirm: () => {
-        const updated = get().connections.filter((c) => c.id !== id);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-        set({
-          connections: updated,
-          selectedConnectionId:
-            get().selectedConnectionId === id ? null : get().selectedConnectionId,
-        });
-        toast.info(`Kết nối "${toDelete.name || "Unnamed"}" đã được xóa.`);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        set({ connection: null });
+        toast.info(`Kết nối "${current.name || "Unnamed"}" đã được xóa.`);
       },
     });
   },
 
-  selectConnection: (id) => {
-    set({ selectedConnectionId: id });
-  },
-
-  getSelectedConnection: () => {
-    return get().connections.find((c) => c.id === get().selectedConnectionId);
+  getConnection: () => {
+    return get().connection;
   },
 }));
 
@@ -86,10 +72,10 @@ if (typeof window !== "undefined") {
   try {
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
-      useConnectionStore.setState({ connections: JSON.parse(stored) });
+      useConnectionStore.setState({ connection: JSON.parse(stored) });
     }
   } catch (error) {
-    console.error("Failed to load connections:", error);
-    toast.error("Failed to load saved connections.");
+    console.error("Failed to load connection:", error);
+    toast.error("Không thể tải kết nối đã lưu.");
   }
 }

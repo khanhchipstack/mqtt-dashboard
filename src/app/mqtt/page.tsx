@@ -3,135 +3,87 @@
 import React, { useEffect, useState, useCallback } from "react";
 import SubscribeSection from "@/components/mqtt/SubscribeSection";
 import AppSidebar from "@/components/connection/app-sidebar";
-import { useMqttClient } from "@/hooks/useMqttClient";
-import { useConnectionStore } from "@/hooks/useConnectionStore";
 import { SavedConnection } from "@/types/connection";
 import { MqttConnectionOptions, SubscribeOptions } from "@/types/mqtt";
 import "react-toastify/dist/ReactToastify.css";
 import { Layout } from "@/components/layout/layout";
 import { MessageCircleMore } from "lucide-react";
 import MqttChatBox from "@/components/mqtt/MqttChat";
+import { useConnectionStore } from "@/hooks/useConnectionStore";
+import { useMqttClient } from "@/hooks/useMqttClient";
 
 export default function MqttClientPage() {
   const {
-    connections,
-    selectedConnectionId,
-    addConnection,
+    connection,
+    setConnection,
     updateConnection,
-    deleteConnection,
-    selectConnection,
-    getSelectedConnection,
+    getConnection,
   } = useConnectionStore();
 
   const {
     connectionStatus,
     receivedMessages,
     activeSubscriptions,
+    selectedTopics,
     connect,
     disconnect,
     subscribe,
     unsubscribe,
     publish,
+    toggleSelectedTopic,
     currentProtocolVersion,
   } = useMqttClient();
 
-  const currentConnection = getSelectedConnection();
-  const [isConnectionFormExpanded, setIsConnectionFormExpanded] =
-    useState(true);
-  const [selectedTopic, setSelectedTopic] = useState<SubscribeOptions | null>(
-    null
-  );
-  const [newConnectionData, setNewConnectionData] = useState<Omit<
-    SavedConnection,
-    "id"
-  > | null>(null);
+  const [newConnectionData, setNewConnectionData] = useState<SavedConnection | null>(null);
 
-  const connectionForForm =
-    selectedConnectionId === null ? newConnectionData : currentConnection;
+  const connectionForForm = connection || newConnectionData;
 
-  useEffect(() => {
-    if (!currentConnection && selectedConnectionId !== null) {
+  const handleSaveConnection = useCallback(
+    (newConn: SavedConnection) => {
+      setConnection(newConn);
       setNewConnectionData(null);
-      setIsConnectionFormExpanded(true);
-    } else if (
-      connectionStatus === "Connected" &&
-      isConnectionFormExpanded &&
-      selectedConnectionId !== null
-    ) {
-      setIsConnectionFormExpanded(false);
-    } else if (selectedConnectionId === null) {
-      setIsConnectionFormExpanded(true);
-    }
-  }, [
-    connectionStatus,
-    isConnectionFormExpanded,
-    currentConnection,
-    selectedConnectionId,
-  ]);
-
-  const handleSaveNewConnection = useCallback(
-    (newConn: Omit<SavedConnection, "id">) => {
-      addConnection(newConn);
-      setNewConnectionData(null);
-      selectConnection(newConn.id);
-      setIsConnectionFormExpanded(false);
+      connect(newConn.options, newConn.subscriptions);
     },
-    [addConnection, selectConnection]
+    [setConnection, connect]
   );
 
   const handleUpdateConnection = useCallback(
-    (id: string, updatedFields: Partial<SavedConnection>) => {
-      updateConnection(id, updatedFields);
-      if (selectedConnectionId === id && connectionStatus !== "Disconnected") {
+    (updatedFields: Partial<SavedConnection>) => {
+      updateConnection(updatedFields);
+      if (connectionStatus !== "Disconnected") {
         disconnect();
         setTimeout(() => {
-          const latestConnection = getSelectedConnection();
+          const latestConnection = getConnection();
           if (latestConnection?.options) {
             connect(latestConnection.options, latestConnection.subscriptions);
           }
         }, 500);
       }
-      setIsConnectionFormExpanded(false);
     },
-    [
-      updateConnection,
-      selectedConnectionId,
-      connectionStatus,
-      disconnect,
-      connect,
-      getSelectedConnection,
-    ]
+    [updateConnection, connectionStatus, disconnect, connect, getConnection]
   );
 
-  const handleConnectSelected = useCallback(
+  const handleConnect = useCallback(
     (options: MqttConnectionOptions) => {
-      if (selectedConnectionId === null && newConnectionData) {
-        alert("Please select or create a connection first.");
-      } else if (currentConnection) {
-        connect(options, currentConnection.subscriptions);
-      } else {
-        alert("Please select or create a connection first.");
+      if (!connection && !newConnectionData) {
+        alert("Please create a connection first.");
+      } else if (connection) {
+        connect(options, connection.subscriptions);
+      } else if (newConnectionData) {
+        handleSaveConnection(newConnectionData);
       }
     },
-    [
-      currentConnection,
-      connect,
-      selectedConnectionId,
-      newConnectionData,
-      addConnection,
-      connections,
-      selectConnection,
-    ]
+    [connection, connect, newConnectionData, handleSaveConnection]
   );
 
   const handleSubscribeTopic = useCallback(
     (options: SubscribeOptions) => {
       subscribe(options);
-      if (currentConnection) {
-        updateConnection(currentConnection.id, {
-          subscriptions: [...currentConnection.subscriptions, options],
+      if (connection) {
+        updateConnection({
+          subscriptions: [...connection.subscriptions, options],
         });
-      } else if (selectedConnectionId === null && newConnectionData) {
+      } else if (newConnectionData) {
         setNewConnectionData((prev) =>
           prev
             ? { ...prev, subscriptions: [...prev.subscriptions, options] }
@@ -139,25 +91,19 @@ export default function MqttClientPage() {
         );
       }
     },
-    [
-      subscribe,
-      currentConnection,
-      updateConnection,
-      selectedConnectionId,
-      newConnectionData,
-    ]
+    [subscribe, connection, updateConnection, newConnectionData]
   );
 
   const handleUnsubscribeTopic = useCallback(
     (id: string, topic: string) => {
       unsubscribe(id, topic);
-      if (currentConnection) {
-        updateConnection(currentConnection.id, {
-          subscriptions: currentConnection.subscriptions.filter(
+      if (connection) {
+        updateConnection({
+          subscriptions: connection.subscriptions.filter(
             (sub) => sub.id !== id
           ),
         });
-      } else if (selectedConnectionId === null && newConnectionData) {
+      } else if (newConnectionData) {
         setNewConnectionData((prev) =>
           prev
             ? {
@@ -169,20 +115,12 @@ export default function MqttClientPage() {
             : null
         );
       }
-      if (selectedTopic?.id === id) setSelectedTopic(null);
     },
-    [
-      unsubscribe,
-      currentConnection,
-      updateConnection,
-      selectedTopic,
-      selectedConnectionId,
-      newConnectionData,
-    ]
+    [unsubscribe, connection, updateConnection, newConnectionData]
   );
 
   useEffect(() => {
-    if (selectedConnectionId === null) {
+    if (!connection) {
       setNewConnectionData({
         name: `New Connection ${new Date().toLocaleTimeString()}`,
         options: {
@@ -198,103 +136,100 @@ export default function MqttClientPage() {
         },
         subscriptions: [],
       });
-      setIsConnectionFormExpanded(true);
-      setSelectedTopic(null);
-    } else if (currentConnection) {
-      setIsConnectionFormExpanded(connectionStatus !== "Connected");
-      setSelectedTopic(null);
     }
-  }, [selectedConnectionId, currentConnection, connectionStatus]);
+  }, [connection]);
 
   useEffect(() => {
-    if (
-      !currentConnection &&
-      connectionStatus !== "Disconnected" &&
-      selectedConnectionId !== null
-    ) {
+    if (!connection && connectionStatus !== "Disconnected") {
       disconnect();
     }
-  }, [currentConnection, connectionStatus, disconnect, selectedConnectionId]);
+  }, [connection, connectionStatus, disconnect]);
 
-  const toggleConnectionForm = () =>
-    setIsConnectionFormExpanded((prev) => !prev);
-
-  const subscriptionsToDisplay =
-    selectedConnectionId === null
-      ? newConnectionData?.subscriptions || []
-      : activeSubscriptions;
+  const subscriptionsToDisplay = connection
+    ? activeSubscriptions
+    : newConnectionData?.subscriptions || [];
 
   return (
     <Layout>
-      <div className="flex flex-col h-screen bg-gray-950 text-white md:flex-row">
-        {/* Sidebar chiếm chiều ngang cố định */}
-        <div>
-          <AppSidebar
-            connections={connections}
-            selectedConnectionId={selectedConnectionId}
-            onSelectConnection={(id) => {
-              selectConnection(id);
-              setNewConnectionData(null);
-            }}
-            onDeleteConnection={(id) => {
-              deleteConnection(id);
-              if (id === selectedConnectionId) {
-                selectConnection(null);
-                setNewConnectionData(null);
-              }
-            }}
-            onConnect={handleConnectSelected}
-            onDisconnect={disconnect}
-            connectionStatus={connectionStatus}
-            onSave={handleSaveNewConnection}
-            onUpdate={handleUpdateConnection}
-          />
+      <div className="h-screen bg-gray-950 text-white flex flex-col">
+        {/* Mobile Layout: AppSidebar and SubscribeSection in one row */}
+        <div className="md:hidden flex flex-col sm:flex-row border-b border-gray-800">
+          <div className="flex-1 sm:w-1/2">
+            <AppSidebar
+              connection={connection}
+              onConnect={handleConnect}
+              onDisconnect={disconnect}
+              connectionStatus={connectionStatus}
+              onSave={handleSaveConnection}
+              onUpdate={handleUpdateConnection}
+            />
+          </div>
+          <div className="flex-1 sm:w-1/2 bg-gray-900 border-t sm:border-t-0 sm:border-l border-gray-800">
+            <SubscribeSection
+              onSubscribe={handleSubscribeTopic}
+              isConnected={connectionStatus === "Connected"}
+              activeSubscriptions={subscriptionsToDisplay}
+              onUnsubscribe={handleUnsubscribeTopic}
+              selectedTopics={selectedTopics}
+              toggleSelectedTopic={toggleSelectedTopic}
+            />
+          </div>
         </div>
 
-        {/* Khu vực chính */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {connectionForForm && (
-            <div className="flex flex-col flex-1 overflow-hidden md:flex-row">
-              {/* Subscriptions */}
-              <div className="w-full md:w-72 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 overflow-y-auto">
-                <SubscribeSection
-                  onSubscribe={handleSubscribeTopic}
+        {/* Desktop Layout: AppSidebar in top row, SubscribeSection and MqttChatBox in bottom row */}
+        <div className="hidden md:flex flex-col flex-1 overflow-hidden">
+          <div className="border-b border-gray-800">
+            <AppSidebar
+              connection={connection}
+              onConnect={handleConnect}
+              onDisconnect={disconnect}
+              connectionStatus={connectionStatus}
+              onSave={handleSaveConnection}
+              onUpdate={handleUpdateConnection}
+            />
+          </div>
+          <div className="flex flex-1 overflow-hidden">
+            <div className="w-72 bg-gray-900 border-r border-gray-800 overflow-y-auto">
+              <SubscribeSection
+                onSubscribe={handleSubscribeTopic}
+                isConnected={connectionStatus === "Connected"}
+                activeSubscriptions={subscriptionsToDisplay}
+                onUnsubscribe={handleUnsubscribeTopic}
+                selectedTopics={selectedTopics}
+                toggleSelectedTopic={toggleSelectedTopic}
+              />
+            </div>
+            <div className="flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
+              <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
+                <MessageCircleMore className="text-cyan-300 mr-2" />
+                Chat
+              </h3>
+              <div className="flex-1 overflow-hidden">
+                <MqttChatBox
+                  messages={receivedMessages}
+                  onPublish={publish}
                   isConnected={connectionStatus === "Connected"}
-                  activeSubscriptions={subscriptionsToDisplay}
-                  onUnsubscribe={handleUnsubscribeTopic}
-                  onSelectTopic={setSelectedTopic}
-                  selectedTopic={selectedTopic}
+                  protocolVersion={currentProtocolVersion}
                 />
               </div>
-
-              {/* Messages & Publish */}
-              <div className="flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
-                <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
-                  <MessageCircleMore className="text-cyan-300 mr-2" />
-                  Chat
-                  {selectedTopic ? (
-                    <span className="ml-2 truncate text-yellow-400">
-                      {selectedTopic.alias || selectedTopic.topic}
-                    </span>
-                  ) : (
-                    <span className="ml-2 text-gray-500">
-                      (No Topic Selected)
-                    </span>
-                  )}
-                </h3>
-
-                <div className="flex-1 overflow-hidden">
-                  <MqttChatBox
-                    messages={receivedMessages}
-                    onPublish={publish}
-                    isConnected={connectionStatus === "Connected"}
-                    protocolVersion={currentProtocolVersion}
-                    selectedTopic={selectedTopic}
-                  />
-                </div>
-              </div>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Mobile Chat Section */}
+        <div className="md:hidden flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
+          <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
+            <MessageCircleMore className="text-cyan-300 mr-2" />
+            Chat
+          </h3>
+          <div className="flex-1 overflow-hidden">
+            <MqttChatBox
+              messages={receivedMessages}
+              onPublish={publish}
+              isConnected={connectionStatus === "Connected"}
+              protocolVersion={currentProtocolVersion}
+            />
+          </div>
         </div>
       </div>
     </Layout>

@@ -47,20 +47,25 @@ export default function SystemIntroduction() {
           <ul className="list-disc list-inside text-gray-300 text-sm sm:text-base space-y-2">
             <li>
               <strong>Host:</strong>{" "}
-              <span className="text-green-400">broker.emqx.io</span>
+              <span className="text-green-400">https://freemqtt.chipstack.vn/</span>
             </li>
             <li>
-              <strong>API :</strong>{" "}
-              <span className="text-blue-400">http://broker.emqx.io:9091</span>
+              <strong>MQTT over MQTT :</strong>{" "}
+              <span className="text-blue-400">http://https://freemqtt.chipstack.vn:1883</span>
             </li>
             <li>
-              <strong>MQTT over WSS:</strong>{" "}
-              <span className="text-blue-400">wss://broker.emqx.io:8883</span>
+              <strong>MQTT over MQTTS :</strong>{" "}
+              <span className="text-yellow-400">http://https://freemqtt.chipstack.vn:8883</span>
             </li>
             <li>
               <strong>MQTT over WS:</strong>{" "}
-              <span className="text-yellow-400">ws://broker.emqx.io:9999</span>
+              <span className="text-blue-400">ws://https://freemqtt.chipstack.vn:8083</span>
             </li>
+            <li>
+              <strong>MQTT over WSS:</strong>{" "}
+              <span className="text-yellow-400">wss://https://freemqtt.chipstack.vn:8884</span>
+            </li>
+
           </ul>
 
           {/* Luồng Hoạt Động */}
@@ -104,7 +109,7 @@ export default function SystemIntroduction() {
             <Settings2 className="w-5 h-5 sm:w-6 sm:h-6" /> Thông Số Kỹ Thuật Chi Tiết
           </h2>
           <Accordion type="single" collapsible className="text-gray-300">
-            <AccordionItem value="mqtt3">
+            <AccordionItem value="mqtt3" className="bg-gray-900 rounded-xl border border-gray-800 px-2">
               <AccordionTrigger className="text-sm sm:text-base">MQTT 3.1.1</AccordionTrigger>
               <AccordionContent>
                 <ul className="list-disc list-inside text-sm sm:text-base space-y-2">
@@ -203,7 +208,7 @@ export default function SystemIntroduction() {
                 </ul>
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="mqtt5">
+            <AccordionItem value="mqtt5" className="bg-gray-900 rounded-xl border border-gray-800 px-2 mt-2">
               <AccordionTrigger className="text-sm sm:text-base">MQTT 5.0</AccordionTrigger>
               <AccordionContent>
                 <ul className="list-disc list-inside text-sm sm:text-base space-y-2">

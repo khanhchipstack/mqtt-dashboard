@@ -1,7 +1,6 @@
-// src/hooks/mqtt/useMqttClient.ts
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import mqtt, { MqttClient, IClientOptions, IClientPublishOptions } from "mqtt";
 import {
   MqttConnectionOptions,
@@ -22,14 +21,16 @@ interface MqttClientHookResult {
   connectionStatus: ConnectionStatus;
   receivedMessages: MqttMessage[];
   activeSubscriptions: SubscribeOptions[];
+  selectedTopics: SubscribeOptions[];
   connect: (
     connectionOptions: MqttConnectionOptions,
     initialSubscriptions?: SubscribeOptions[]
-  ) => void; // Added initialSubscriptions
+  ) => void;
   disconnect: () => void;
   subscribe: (options: SubscribeOptions) => void;
-  unsubscribe: (id: string, topic: string) => void; // Unsubscribe by ID and topic
+  unsubscribe: (id: string, topic: string) => void;
   publish: (options: PublishOptions) => void;
+  toggleSelectedTopic: (topic: SubscribeOptions) => void;
   currentProtocolVersion: 4 | 5;
 }
 
@@ -41,9 +42,8 @@ export const useMqttClient = (): MqttClientHookResult => {
   const [activeSubscriptions, setActiveSubscriptions] = useState<
     SubscribeOptions[]
   >([]);
-  const [currentProtocolVersion, setCurrentProtocolVersion] = useState<4 | 5>(
-    4
-  );
+  const [selectedTopics, setSelectedTopics] = useState<SubscribeOptions[]>([]);
+  const [currentProtocolVersion, setCurrentProtocolVersion] = useState<4 | 5>(4);
 
   const connect = useCallback(
     (
@@ -51,30 +51,21 @@ export const useMqttClient = (): MqttClientHookResult => {
       initialSubscriptions: SubscribeOptions[] = []
     ) => {
       if (client && client.connected) {
-        toast.warn(
-          "Already connected. Disconnect first to connect to a new broker."
-        );
+        toast.warn("Already connected. Disconnect before connecting to a new broker.");
         return;
       }
 
       setConnectionStatus("Connecting");
       setReceivedMessages([]);
-      setActiveSubscriptions([]); // Clear subscriptions when connecting to a new broker
+      setActiveSubscriptions([]);
+      setSelectedTopics([]);
 
-      // const connectUrl = `${options.protocol}://${options.host}:${options.port}`;
-      const connectUrl = `${options.protocol}://${window.location.host}/api/mqtt`;
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      
-      // --- Start: Construct MQTT.js IClientOptions for MQTT 5.0 Properties ---
-      let mqtt5ConnectProperties: Mqtt5ConnectProperties | undefined =
-        undefined;
+      const connectUrl = `${protocol}://${window.location.host}/api/mqtt`;
+
+      let mqtt5ConnectProperties: Mqtt5ConnectProperties | undefined = undefined;
       if (options.protocolVersion === 5 && options.properties) {
         try {
-          const userProps = options.properties.userProperties;
-          // Ensure userProperties are parsed if they come as string, but here they should be object
-          // If they are coming from the form, they might be stringified JSON, so we need to parse them.
-          // Assuming the type in MqttConnectionOptions is already the object type.
-
           mqtt5ConnectProperties = {
             sessionExpiryInterval: options.properties.sessionExpiryInterval,
             receiveMaximum: options.properties.receiveMaximum,
@@ -84,14 +75,11 @@ export const useMqttClient = (): MqttClientHookResult => {
               options.properties.requestResponseInformation,
             requestProblemInformation:
               options.properties.requestProblemInformation,
-            // User properties should be an object directly here, not a string
-            userProperties: userProps ? userProps : undefined, // Ensure it's not an empty object if undefined
+            userProperties: options.properties.userProperties,
           };
         } catch (e) {
           console.error("Error parsing MQTT 5.0 Connect User Properties:", e);
-          toast.error(
-            "Invalid MQTT 5.0 Connect User Properties format. Check console."
-          );
+          toast.error("Invalid MQTT 5.0 connect properties format.");
           setConnectionStatus("Error");
           return;
         }
@@ -104,35 +92,30 @@ export const useMqttClient = (): MqttClientHookResult => {
         options.will.properties
       ) {
         try {
-          const willUserProps = options.will.properties.userProperties;
-
           mqtt5WillProperties = {
             willDelayInterval: options.will.properties.willDelayInterval,
             messageExpiryInterval:
               options.will.properties.messageExpiryInterval,
             contentType: options.will.properties.contentType,
             responseTopic: options.will.properties.responseTopic,
-            // correlationData for MQTT.js needs to be a Buffer
             correlationData: options.will.properties.correlationData
               ? Buffer.from(options.will.properties.correlationData, "base64")
               : undefined,
             payloadFormatIndicator:
               options.will.properties.payloadFormatIndicator,
-            userProperties: willUserProps ? willUserProps : undefined,
+            userProperties: options.will.properties.userProperties,
           };
         } catch (e) {
           console.error(
             "Error parsing MQTT 5.0 Will User Properties or Correlation Data:",
             e
           );
-          toast.error(
-            "Invalid MQTT 5.0 Will Properties format. Check console."
-          );
+          toast.error("Invalid MQTT 5.0 will properties format.");
           setConnectionStatus("Error");
           return;
         }
       }
-      // --- End: Construct MQTT.js IClientOptions for MQTT 5.0 Properties ---
+
       const mqttOptions: IClientOptions = {
         clientId: options.clientId,
         username: options.username || undefined,
@@ -142,7 +125,6 @@ export const useMqttClient = (): MqttClientHookResult => {
         connectTimeout: options.connectTimeout ?? 10_000,
         reconnectPeriod: options.reconnectPeriod ?? 0,
         protocolVersion: options.protocolVersion,
-      
         will: options.will
           ? {
               topic: options.will.topic,
@@ -152,26 +134,16 @@ export const useMqttClient = (): MqttClientHookResult => {
               properties: mqtt5WillProperties,
             }
           : undefined,
-      
         rejectUnauthorized: options.rejectUnauthorized ?? true,
-      
-        // Chỉ truyền buffer nếu có nội dung thực sự
         ca: options.ca?.trim() ? Buffer.from(options.ca, "utf-8") : undefined,
         cert: options.cert?.trim() ? Buffer.from(options.cert, "utf-8") : undefined,
         key: options.key?.trim() ? Buffer.from(options.key, "utf-8") : undefined,
-      
-        // Chỉ truyền properties khi dùng MQTT 5
         properties: options.protocolVersion === 5 ? mqtt5ConnectProperties : undefined,
       };
-      
 
       try {
-        const mqttClient = mqtt.connect(`${protocol}://${window.location.host}/api/mqtt`);
-        // const mqttClient = mqtt.connect(connectUrl, mqttOptions);
-        console.log({
-          connectUrl,
-          mqttOptions,
-        })
+        const mqttClient = mqtt.connect(connectUrl, mqttOptions);
+        
         mqttClient.on("connect", () => {
           setConnectionStatus("Connected");
           setCurrentProtocolVersion(options.protocolVersion);
@@ -179,18 +151,20 @@ export const useMqttClient = (): MqttClientHookResult => {
             `Connected to ${options.host}:${options.port} (MQTT ${options.protocolVersion}.0)`
           );
 
-          // Auto-subscribe to initial subscriptions
           initialSubscriptions.forEach((sub) => {
             mqttClient.subscribe(sub.topic, { qos: sub.qos }, (err) => {
               if (err) {
                 console.error(`Failed to auto-subscribe to ${sub.topic}:`, err);
-                toast.error(
-                  `Failed to auto-subscribe to ${sub.topic}: ${err.message}`
-                );
+                toast.error(`Failed to auto-subscribe to ${sub.topic}: ${err.message}`);
               } else {
                 console.log(`Auto-subscribed to topic: ${sub.topic}`);
                 setActiveSubscriptions((prev) => {
-                  // Check by ID to avoid duplicates (important if resubscribing)
+                  if (!prev.some((s) => s.id === sub.id)) {
+                    return [...prev, sub];
+                  }
+                  return prev;
+                });
+                setSelectedTopics((prev) => {
                   if (!prev.some((s) => s.id === sub.id)) {
                     return [...prev, sub];
                   }
@@ -203,10 +177,8 @@ export const useMqttClient = (): MqttClientHookResult => {
 
         mqttClient.on("error", (err) => {
           setConnectionStatus("Error");
-          console.error("MQTT Connection error:", err);
+          console.error("MQTT connection error:", err);
           toast.error(`Connection error: ${err.message}`);
-          // Consider mqttClient.end() here if you want to explicitly close on error
-          // mqttClient.end();
         });
 
         mqttClient.on("reconnect", () => {
@@ -217,20 +189,22 @@ export const useMqttClient = (): MqttClientHookResult => {
         mqttClient.on("close", () => {
           setConnectionStatus("Disconnected");
           setClient(null);
-          setActiveSubscriptions([]); // Clear subscriptions on close
-          setCurrentProtocolVersion(4); // Reset to default protocol version
+          setActiveSubscriptions([]);
+          setSelectedTopics([]);
+          setCurrentProtocolVersion(4);
           toast.info("Disconnected from broker.");
         });
 
         mqttClient.on("offline", () => {
           setConnectionStatus("Disconnected");
-          toast.warn("MQTT Client went offline.");
+          toast.warn("MQTT Client is offline.");
         });
 
         mqttClient.on("end", () => {
           setConnectionStatus("Disconnected");
           setClient(null);
           setActiveSubscriptions([]);
+          setSelectedTopics([]);
           setCurrentProtocolVersion(4);
           toast.info("MQTT Client connection ended.");
         });
@@ -249,7 +223,7 @@ export const useMqttClient = (): MqttClientHookResult => {
           setReceivedMessages((prevMessages) => [
             ...prevMessages,
             {
-              id: generateMessageId(), // Generate unique ID for each message
+              id: generateMessageId(),
               topic,
               message: msgString,
               parsedPayload,
@@ -273,39 +247,35 @@ export const useMqttClient = (): MqttClientHookResult => {
   const disconnect = useCallback(() => {
     if (client) {
       client.end(true, () => {
-        // Force close, no pending messages
         setConnectionStatus("Disconnected");
         setClient(null);
         setActiveSubscriptions([]);
+        setSelectedTopics([]);
         setCurrentProtocolVersion(4);
         toast.info("MQTT Client disconnected.");
       });
     } else {
       setConnectionStatus("Disconnected");
-      toast.warn("Not connected to disconnect.");
+      toast.warn("No connection to disconnect.");
     }
   }, [client]);
 
   const subscribe = useCallback(
     (options: SubscribeOptions) => {
       if (client && client.connected) {
-        // Check if already subscribed to this exact topic (ignoring ID for existing topics)
         if (activeSubscriptions.some((sub) => sub.topic === options.topic)) {
-          toast.warn(
-            `Already subscribed to "${options.alias || options.topic}"`
-          );
+          toast.warn(`Already subscribed to "${options.alias || options.topic}"`);
           return;
         }
 
         client.subscribe(options.topic, { qos: options.qos }, (err) => {
           if (err) {
             console.error(`Failed to subscribe to ${options.topic}:`, err);
-            toast.error(
-              `Failed to subscribe to ${options.topic}: ${err.message}`
-            );
+            toast.error(`Failed to subscribe to ${options.topic}: ${err.message}`);
           } else {
             console.log(`Subscribed to topic: ${options.topic}`);
             setActiveSubscriptions((prev) => [...prev, options]);
+            setSelectedTopics((prev) => [...prev, options]); // Auto-select new subscription
             toast.success(`Subscribed to "${options.alias || options.topic}"`);
           }
         });
@@ -329,14 +299,12 @@ export const useMqttClient = (): MqttClientHookResult => {
               const unsubscribedItem = prev.find((sub) => sub.id === id);
               if (unsubscribedItem) {
                 toast.info(
-                  `Unsubscribed from "${
-                    unsubscribedItem.alias || unsubscribedItem.topic
-                  }"`
+                  `Unsubscribed from "${unsubscribedItem.alias || unsubscribedItem.topic}"`
                 );
               }
               return prev.filter((sub) => sub.id !== id);
             });
-            // Also remove messages related to this topic if desired, or let MessageList filter it
+            setSelectedTopics((prev) => prev.filter((sub) => sub.id !== id));
             setReceivedMessages((prevMessages) =>
               prevMessages.filter((msg) => msg.topic !== topic)
             );
@@ -349,6 +317,16 @@ export const useMqttClient = (): MqttClientHookResult => {
     [client]
   );
 
+  const toggleSelectedTopic = useCallback((topic: SubscribeOptions) => {
+    setSelectedTopics((prev) => {
+      if (prev.some((sub) => sub.id === topic.id)) {
+        return prev.filter((sub) => sub.id !== topic.id);
+      } else {
+        return [...prev, topic];
+      }
+    });
+  }, []);
+
   const publish = useCallback(
     (options: PublishOptions) => {
       if (client && client.connected) {
@@ -357,9 +335,8 @@ export const useMqttClient = (): MqttClientHookResult => {
         try {
           switch (options.format) {
             case "json":
-              // Validate JSON before parsing
-              JSON.parse(options.payload); // Throws error if invalid
-              payloadBuffer = options.payload; // Send as string, mqtt.js handles it
+              JSON.parse(options.payload);
+              payloadBuffer = options.payload;
               break;
             case "hex":
               payloadBuffer = Buffer.from(
@@ -381,7 +358,7 @@ export const useMqttClient = (): MqttClientHookResult => {
               : payloadBuffer.byteLength;
         } catch (e: any) {
           toast.error(`Invalid payload format: ${e.message}`);
-          console.error("Payload parsing error:", e);
+          console.error("Error parsing payload:", e);
           return;
         }
 
@@ -389,26 +366,22 @@ export const useMqttClient = (): MqttClientHookResult => {
           undefined;
         if (currentProtocolVersion === 5 && options.properties) {
           try {
-            const publishUserProps = options.properties.userProperties;
             mqtt5PublishProperties = {
               payloadFormatIndicator: options.properties.payloadFormatIndicator,
               messageExpiryInterval: options.properties.messageExpiryInterval,
               contentType: options.properties.contentType,
               responseTopic: options.properties.responseTopic,
-              // correlationData for MQTT.js needs to be a Buffer
               correlationData: options.properties.correlationData
                 ? Buffer.from(options.properties.correlationData, "base64")
                 : undefined,
-              userProperties: publishUserProps ? publishUserProps : undefined,
+              userProperties: options.properties.userProperties,
             };
           } catch (e) {
             console.error(
               "Error parsing MQTT 5.0 Publish User Properties or Correlation Data:",
               e
             );
-            toast.error(
-              "Invalid MQTT 5.0 Publish Properties format. Check console."
-            );
+            toast.error("Invalid MQTT 5.0 publish properties format.");
             return;
           }
         }
@@ -416,15 +389,13 @@ export const useMqttClient = (): MqttClientHookResult => {
         const publishOptions: IClientPublishOptions = {
           qos: options.qos,
           retain: options.retain,
-          properties: mqtt5PublishProperties, // Use the constructed properties
+          properties: mqtt5PublishProperties,
         };
 
         client.publish(options.topic, payloadBuffer, publishOptions, (err) => {
           if (err) {
             console.error(`Failed to publish to ${options.topic}:`, err);
-            toast.error(
-              `Failed to publish to ${options.topic}: ${err.message}`
-            );
+            toast.error(`Failed to publish to ${options.topic}: ${err.message}`);
           } else {
             console.log(
               `Published message to ${options.topic}: ${options.payload}`
@@ -452,7 +423,12 @@ export const useMqttClient = (): MqttClientHookResult => {
         toast.error("Not connected to MQTT broker. Please connect first.");
       }
     },
-    [client, currentProtocolVersion] // Add currentProtocolVersion dependency
+    [client, currentProtocolVersion]
+  );
+
+  // Filter messages based on selected topics
+  const filteredMessages = receivedMessages.filter((msg) =>
+    selectedTopics.some((sub) => sub.topic === msg.topic)
   );
 
   useEffect(() => {
@@ -466,13 +442,15 @@ export const useMqttClient = (): MqttClientHookResult => {
   return {
     client,
     connectionStatus,
-    receivedMessages,
+    receivedMessages: filteredMessages,
     activeSubscriptions,
+    selectedTopics,
     connect,
     disconnect,
     subscribe,
     unsubscribe,
     publish,
+    toggleSelectedTopic,
     currentProtocolVersion,
   };
 };
