@@ -226,7 +226,7 @@ export default function MqttClientPage() {
 
   return (
     <Layout>
-      <div className="flex flex-col h-screen bg-gray-950 text-white md:flex-row">
+      <div className="flex flex-col h-auto lg:h-screen bg-gray-950 text-white md:flex-row">
         {/* Sidebar chiếm chiều ngang cố định */}
         <div>
           <AppSidebar

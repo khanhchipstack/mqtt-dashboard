@@ -66,6 +66,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   useEffect(() => {
     if (connections.length === 0) {
       setIsModalOpen(true);
+    }else{
+      setIsModalOpen(false)
     }
   }, [connections.length]);
 
@@ -380,7 +382,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
           </Button>
         </div>
       )}
-      {isHorizontal && (
+      {isHorizontal && connections.length === 0 && (
         <Button
           onClick={handleOpenNew}
           className={`flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-2 py-1 transition h-10 ${

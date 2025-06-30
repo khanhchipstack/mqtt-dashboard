@@ -144,7 +144,7 @@ const MqttChatBox: React.FC<MqttChatBoxProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
+    <div className="flex flex-col h-full md:h-screen bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
       {/* Tin nhắn */}
       <div className="flex-1 p-2 sm:p-4 overflow-y-auto space-y-2 sm:space-y-4 bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
         {messages.length === 0 || !selectedTopic ? (
