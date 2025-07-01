@@ -380,7 +380,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           onClick={onClose}
           className="text-gray-400 hover:text-white transition-all duration-300 hover:bg-gray-800 rounded-xl p-2 sm:p-2.5"
           variant="ghost"
-          disabled={isDisabled}
         >
           <X className="h-4 w-4 sm:h-5 sm:w-5 transition-transform duration-300" />
         </Button>
