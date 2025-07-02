@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import SubscribeSection from "@/components/mqtt/SubscribeSection";
 import AppSidebar from "@/components/connection/app-sidebar";
 import { SavedConnection } from "@/types/connection";
@@ -33,7 +33,7 @@ export default function MqttClientPage() {
     toggleSelectedTopic,
     currentProtocolVersion,
   } = useMqttClient();
-
+  const messages = useMemo(() => receivedMessages, [receivedMessages]);
   const [newConnectionData, setNewConnectionData] = useState<SavedConnection | null>(null);
 
   const connectionForForm = connection || newConnectionData;
@@ -204,7 +204,7 @@ export default function MqttClientPage() {
               </h3>
               <div className="flex-1 overflow-hidden">
                 <MqttChatBox
-                  messages={receivedMessages}
+                  messages={messages}
                   onPublish={publish}
                   isConnected={connectionStatus === "Connected"}
                   protocolVersion={currentProtocolVersion}
@@ -222,7 +222,7 @@ export default function MqttClientPage() {
           </h3>
           <div className="flex-1 overflow-hidden">
             <MqttChatBox
-              messages={receivedMessages}
+              messages={messages}
               onPublish={publish}
               isConnected={connectionStatus === "Connected"}
               protocolVersion={currentProtocolVersion}

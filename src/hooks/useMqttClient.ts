@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { MqttConnectionOptions, MqttMessage, SubscribeOptions, PublishOptions } from "@/types/mqtt";
 import { mqttClientManager } from "@/lib/mqttClientManager";
-import { useConnectionStore } from "./useConnectionStore";
+import { ConnectionStatus, useConnectionStore } from "./useConnectionStore";
 import { MqttClient } from "mqtt";
 
 interface MqttClientHookResult {
@@ -36,7 +36,6 @@ export const useMqttClient = (): MqttClientHookResult => {
     mqttClientManager.getCurrentProtocolVersion()
   );
 
-  // Sync state with manager
   useEffect(() => {
     const updateState = () => {
       setReceivedMessages(mqttClientManager.getReceivedMessages());
@@ -45,12 +44,14 @@ export const useMqttClient = (): MqttClientHookResult => {
       setLocalConnectionStatus(mqttClientManager.getConnectionStatus());
       setCurrentProtocolVersion(mqttClientManager.getCurrentProtocolVersion());
       setMqttClient(mqttClientManager.getClient());
-      setConnectionStatus(mqttClientManager.getConnectionStatus());
+      setConnectionStatus(mqttClientManager.getConnectionStatus() as ConnectionStatus);
     };
 
-    updateState();
-    const interval = setInterval(updateState, 1000); // Poll every second to sync state
-    return () => clearInterval(interval);
+    // Đăng ký lắng nghe sự kiện stateChange
+    mqttClientManager.on("stateChange", updateState);
+    updateState(); // Đồng bộ trạng thái ban đầu
+
+    return () => mqttClientManager.off("stateChange", updateState); // Dọn dẹp
   }, [setMqttClient, setConnectionStatus]);
 
   return {

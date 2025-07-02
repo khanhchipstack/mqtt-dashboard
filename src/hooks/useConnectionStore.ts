@@ -9,7 +9,7 @@ import { mqttClientManager } from "@/lib/mqttClientManager";
 
 const LOCAL_STORAGE_KEY = "mqtt_connection";
 
-type ConnectionStatus = "Connected" | "Connecting" | "Disconnected" | "Error";
+export type ConnectionStatus = "Connected" | "Connecting" | "Disconnected" | "Error";
 
 interface ConnectionStore {
   connection: SavedConnection | null;

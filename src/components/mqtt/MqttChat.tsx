@@ -72,11 +72,11 @@ const MqttChatBox: React.FC<MqttChatBoxProps> = ({
   const isAtBottom = () => {
     if (!containerRef.current) return false;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    return scrollHeight - scrollTop - clientHeight < 50;
+    return scrollHeight - scrollTop - clientHeight <= 10;
   };
-
+  
   useEffect(() => {
-    if (isAtBottom() && messagesEndRef.current) {
+    if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);

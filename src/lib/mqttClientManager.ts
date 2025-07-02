@@ -15,7 +15,8 @@ import {
 import { toast } from "react-toastify";
 import { generateMessageId } from "@/utils/idGenerator";
 import { Buffer } from "buffer";
-
+import { EventEmitter } from "events";
+import { isEqual } from "lodash";
 class MqttClientManager {
   private static instance: MqttClientManager | null = null;
   private client: MqttClient | null = null;
@@ -28,9 +29,11 @@ class MqttClientManager {
   private receivedMessages: MqttMessage[] = [];
   private activeSubscriptions: SubscribeOptions[] = [];
   private selectedTopics: SubscribeOptions[] = [];
+  private cachedMessages: MqttMessage[] = [];
   private currentProtocolVersion: 4 | 5 = 4;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
+  private eventEmitter = new EventEmitter();
 
   private constructor() {}
 
@@ -41,11 +44,24 @@ class MqttClientManager {
     return MqttClientManager.instance;
   }
 
+  public on(event: string, listener: (...args: any[]) => void) {
+    this.eventEmitter.on(event, listener);
+  }
+
+  public off(event: string, listener: (...args: any[]) => void) {
+    this.eventEmitter.off(event, listener);
+  }
+
+  private emitStateChange() {
+    this.eventEmitter.emit("stateChange");
+  }
+
   public connect(
     options: MqttConnectionOptions,
     initialSubscriptions: SubscribeOptions[] = []
   ): void {
-    // If already connected, disconnect first
+    if (!options || !options.host || !options.port) return;
+
     if (this.client && this.client.connected) {
       toast.warn(
         "Already connected. Disconnecting before connecting to a new broker."
@@ -53,7 +69,6 @@ class MqttClientManager {
       this.disconnect();
     }
 
-    // Reset all state for a new connection
     this.connectionStatus = "Connecting";
     this.reconnectAttempts = 0;
     this.clearSubscriptionsAndMessages();
@@ -84,8 +99,17 @@ class MqttClientManager {
         ? Buffer.from(options.cert, "utf-8")
         : undefined,
       key: options.key?.trim() ? Buffer.from(options.key, "utf-8") : undefined,
-      properties:
-        options.protocolVersion === 5 ? options.properties : undefined,
+      properties: {
+        sessionExpiryInterval: options.properties?.sessionExpiryInterval ?? 0,
+        receiveMaximum: options.properties?.receiveMaximum ?? 0,
+        maximumPacketSize: options.properties?.maximumPacketSize ?? 0,
+        topicAliasMaximum: options.properties?.topicAliasMaximum ?? 0,
+        requestResponseInformation:
+          options.properties?.requestResponseInformation ?? false,
+        requestProblemInformation:
+          options.properties?.requestProblemInformation ?? false,
+        userProperties: options.properties?.userProperties || undefined,
+      },
     };
 
     try {
@@ -93,67 +117,59 @@ class MqttClientManager {
 
       this.client.on("connect", () => {
         this.connectionStatus = "Connected";
-        this.currentProtocolVersion = options.protocolVersion;
-        this.reconnectAttempts = 0; // Reset khi đã kết nối thành công
+        this.currentProtocolVersion = options.protocolVersion as 4 | 5;
+        this.reconnectAttempts = 0;
         toast.success(
           `Connected to ${options.host}:${options.port} (MQTT ${options.protocolVersion}.0)`
         );
+        this.emitStateChange();
       });
 
       this.client.on("error", (err) => {
         this.connectionStatus = "Error";
-        console.error("MQTT connection error:", err);
-        toast.error(`Connection error: ${err.message}`);
+        console.error("MQTT connection error:", err.stack);
+        toast.error(`Connection error: ${err}`);
+        this.emitStateChange();
       });
 
       this.client.on("reconnect", () => {
         this.connectionStatus = "Reconnecting";
         toast.info(`Reconnecting...`);
-      });
-
-      // Đếm số lần thất bại thực tế tại close hoặc offline
-      this.client.on("close", () => {
-        if (this.connectionStatus !== "Connected") {
-          this.reconnectAttempts += 1;
-          if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this.client?.end(true, () => {
-              this.connectionStatus = "Disconnected";
-              this.client = null;
-              this.clearSubscriptionsAndMessages();
-              toast.error(
-                `Max reconnect attempts (${this.maxReconnectAttempts}) reached. Connection stopped.`
-              );
-            });
-          } else {
-            toast.warn(
-              `Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
-            );
-          }
-        }
+        this.emitStateChange();
       });
 
       this.client.on("close", () => {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          return;
+          this.client?.end(true, () => {
+            this.connectionStatus = "Disconnected";
+            this.client = null;
+            this.clearSubscriptionsAndMessages();
+            toast.error(
+              `Max reconnect attempts (${this.maxReconnectAttempts}) reached. Connection stopped.`
+            );
+            this.emitStateChange();
+          });
+        } else {
+          this.connectionStatus = "Disconnected";
+          this.clearSubscriptionsAndMessages();
+          toast.info("Disconnected from broker.");
+          this.emitStateChange();
         }
-        this.connectionStatus = "Disconnected";
-        this.clearSubscriptionsAndMessages();
-        toast.info("Disconnected from broker.");
       });
 
       this.client.on("offline", () => {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          return;
-        }
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
         this.connectionStatus = "Disconnected";
         this.clearSubscriptionsAndMessages();
         toast.warn("MQTT Client is offline.");
+        this.emitStateChange();
       });
 
       this.client.on("end", () => {
         this.connectionStatus = "Disconnected";
         this.clearSubscriptionsAndMessages();
         toast.info("MQTT Client connection ended.");
+        this.emitStateChange();
       });
 
       this.client.on("message", (topic, message, packet) => {
@@ -168,10 +184,9 @@ class MqttClientManager {
           // Not JSON, bỏ qua
         }
 
-        // 🔥 Lấy màu của topic
         const topicColor =
           this.activeSubscriptions.find((sub) => sub.topic === topic)?.color ||
-          "#22c55e"; // default xanh lá nếu không có
+          "#22c55e";
 
         this.receivedMessages = [
           ...this.receivedMessages.slice(-100),
@@ -183,14 +198,16 @@ class MqttClientManager {
             qos: packet.qos,
             timestamp: new Date().toLocaleString(),
             size: message.byteLength,
-            color: topicColor, // Thêm màu vào message
+            color: topicColor,
           },
         ];
+        this.emitStateChange();
       });
     } catch (error: any) {
       this.connectionStatus = "Error";
       console.error("Failed to connect:", error);
       toast.error(`Failed to connect: ${error.message}`);
+      this.emitStateChange();
     }
   }
 
@@ -202,11 +219,13 @@ class MqttClientManager {
         this.reconnectAttempts = 0;
         this.clearSubscriptionsAndMessages();
         toast.info("MQTT Client disconnected.");
+        this.emitStateChange();
       });
     } else {
       this.connectionStatus = "Disconnected";
       this.clearSubscriptionsAndMessages();
       toast.warn("No connection to disconnect.");
+      this.emitStateChange();
     }
   }
 
@@ -223,10 +242,10 @@ class MqttClientManager {
 
     const subscribeOptions: IClientSubscribeOptions = {
       qos: options.qos,
-      nl: options.nl || false, // No Local (default false if undefined)
-      rap: options.rap || false, // Retain As Published (default false if undefined)
-      rh: options.rh || 0, // Retain Handling (default 0 if undefined)
-      properties: options.properties || {}, // MQTT 5.0 properties, including subscriptionIdentifier if provided
+      nl: options.nl || false,
+      rap: options.rap || false,
+      rh: options.rh || 0,
+      properties: options.properties || {},
     };
 
     this.client.subscribe(
@@ -243,6 +262,7 @@ class MqttClientManager {
           this.activeSubscriptions = [...this.activeSubscriptions, options];
           this.selectedTopics = [...this.selectedTopics, options];
           toast.success(`Subscribed to "${options.alias || options.topic}"`);
+          this.emitStateChange();
         }
       }
     );
@@ -275,6 +295,7 @@ class MqttClientManager {
           this.receivedMessages = this.receivedMessages.filter(
             (msg) => msg.topic !== topic
           );
+          this.emitStateChange();
         }
       });
     } else {
@@ -287,10 +308,10 @@ class MqttClientManager {
       toast.error("Not connected to MQTT broker. Please connect first.");
       return;
     }
-  
+
     let payloadBuffer: string | Buffer;
     let payloadSize: number = 0;
-  
+
     try {
       switch (options.format) {
         case "json":
@@ -317,8 +338,7 @@ class MqttClientManager {
       console.error("Error parsing payload:", e);
       return;
     }
-  
-    // Prepare MQTT 5.0 properties with defaults and validation
+
     const publishProperties: Mqtt5PublishProperties = {
       payloadFormatIndicator:
         options.properties?.payloadFormatIndicator ??
@@ -331,19 +351,22 @@ class MqttClientManager {
       userProperties: options.properties?.userProperties,
       subscriptionIdentifier: options.properties?.subscriptionIdentifier,
     };
-  
-    // Validate topicAlias if provided
-    if (publishProperties.topicAlias !== undefined && (publishProperties.topicAlias < 0 || publishProperties.topicAlias > 65535)) {
+
+    if (
+      publishProperties.topicAlias !== undefined &&
+      (publishProperties.topicAlias < 0 ||
+        publishProperties.topicAlias > 65535)
+    ) {
       toast.error("Topic Alias must be between 0 and 65535");
       return;
     }
-  
+
     const publishOptions: IClientPublishOptions = {
       qos: options.qos,
       retain: options.retain,
       properties: publishProperties,
     };
-  
+
     this.client.publish(
       options.topic,
       payloadBuffer,
@@ -355,12 +378,11 @@ class MqttClientManager {
         } else {
           console.log(`Published message to ${options.topic}: ${options.payload}`);
           toast.success(`Published to "${options.topic}"`);
-  
-          // 🔥 Tìm màu theo topic:
+
           const topicColor =
             this.activeSubscriptions.find((sub) => sub.topic === options.topic)
-              ?.color || "#22c55e"; // default xanh lá nếu không có
-  
+              ?.color || "#22c55e";
+
           this.receivedMessages = [
             ...this.receivedMessages.slice(-100),
             {
@@ -375,9 +397,10 @@ class MqttClientManager {
               timestamp: new Date().toLocaleString(),
               isPublished: true,
               size: payloadSize,
-              color: topicColor, // Thêm color vào message
+              color: topicColor,
             },
           ];
+          this.emitStateChange();
         }
       }
     );
@@ -387,12 +410,15 @@ class MqttClientManager {
     this.selectedTopics = this.selectedTopics.some((sub) => sub.id === topic.id)
       ? this.selectedTopics.filter((sub) => sub.id !== topic.id)
       : [...this.selectedTopics, topic];
+    this.emitStateChange();
   }
 
   private clearSubscriptionsAndMessages(): void {
     this.activeSubscriptions = [];
     this.selectedTopics = [];
     this.receivedMessages = [];
+    this.cachedMessages = [];
+    this.emitStateChange();
   }
 
   public getClient(): MqttClient | null {
@@ -404,9 +430,14 @@ class MqttClientManager {
   }
 
   public getReceivedMessages(): MqttMessage[] {
-    return this.receivedMessages.filter((msg) =>
+    const filteredMessages = this.receivedMessages.filter((msg) =>
       this.selectedTopics.some((sub) => sub.topic === msg.topic)
     );
+    if (isEqual(filteredMessages, this.cachedMessages)) {
+      return this.cachedMessages;
+    }
+    this.cachedMessages = filteredMessages;
+    return this.cachedMessages;
   }
 
   public getActiveSubscriptions(): SubscribeOptions[] {

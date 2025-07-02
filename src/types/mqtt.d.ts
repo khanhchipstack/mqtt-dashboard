@@ -1,27 +1,6 @@
 import { type IConnackPacket, type IDisconnectPacket, type IPublishPacket, type ISubscribePacket, type IUnsubscribePacket, type IConnectPacket, type QoS } from 'mqtt-packet';
 import { Buffer } from 'buffer';
 
-// Định nghĩa type cho các thuộc tính MQTT 5.0
-export interface Mqtt5ConnectProperties {
-  sessionExpiryInterval?: number;
-  receiveMaximum?: number;
-  maximumPacketSize?: number;
-  topicAliasMaximum?: number;
-  requestResponseInformation?: boolean;
-  requestProblemInformation?: boolean;
-  userProperties?: Record<string, string | string[]>;
-  cleanStart?: boolean;
-}
-
-export interface Mqtt5WillProperties {
-  willDelayInterval?: number;
-  messageExpiryInterval?: number;
-  contentType?: string;
-  responseTopic?: string;
-  correlationData?: Buffer; // Changed to Buffer | undefined
-  payloadFormatIndicator?: boolean;
-  userProperties?: Record<string, string | string[]>;
-}
 export type PayloadFormat = "plaintext" | "json" | "hex" | "base64";
 export interface Mqtt5PublishProperties {
   payloadFormatIndicator?: boolean;
@@ -34,16 +13,6 @@ export interface Mqtt5PublishProperties {
   subscriptionIdentifier?: number | number[]; 
 }
 
-// Định nghĩa type cho cấu hình kết nối MQTT
-export interface MqttWillProperties {
-  willDelayInterval?: number;
-  messageExpiryInterval?: number;
-  contentType?: string;
-  responseTopic?: string;
-  correlationData?: Buffer | string; // Buffer for MQTT.js, string for UI
-  payloadFormatIndicator?: boolean;
-  userProperties?: { [key: string]: string };
-}
 
 export interface MqttConnectionOptions {
   protocol: "mqtt" | "mqtts" | "ws" | "wss";
