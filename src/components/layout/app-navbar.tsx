@@ -30,7 +30,7 @@ export function AppNavbar() {
           >
             <Menu size={24} />
           </button>
-          <span className="text-white font-sm">FreeMQTT by Chipstack</span>
+          <span className="text-white font-sm" style={{ color: "#05b2ff" }}>FreeMQTT by Chipstack</span>
           <div className="w-6 h-6  rounded-full flex items-center justify-center">
             {/* <span className="text-black font-bold text-sm">N</span> */}
             <img className="w-[30px]" src={"/images/logo.png"} />

@@ -21,6 +21,7 @@ const DashboardWarning = () => {
               Mỗi kết nối có giới hạn <b>60 phút</b>, sau đó sẽ bị chặn tạm thời <b>60 phút</b>. 
               Mỗi địa chỉ IP được phép tối đa <b>5 kết nối đồng thời</b>. 
               Tốc độ truyền dữ liệu giới hạn ở <b>3KB/s</b>. 
+              Mỗi kết nối chỉ được phép subscribe tối đa <b>5 topic</b>. 
               Server có thể được bảo trì bất kỳ lúc nào mà không cần thông báo trước. 
               Chúng tôi không cam kết SLA, mong quý khách hàng thông cảm.
             </p>

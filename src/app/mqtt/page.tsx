@@ -65,9 +65,7 @@ export default function MqttClientPage() {
 
   const handleConnect = useCallback(
     (options: MqttConnectionOptions) => {
-      if (!connection && !newConnectionData) {
-        alert("Please create a connection first.");
-      } else if (connection) {
+      if (connection) {
         connect(options, connection.subscriptions);
       } else if (newConnectionData) {
         handleSaveConnection(newConnectionData);
@@ -202,7 +200,7 @@ export default function MqttClientPage() {
             <div className="flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
               <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
                 <MessageCircleMore className="text-cyan-300 mr-2" />
-                Chat
+                Tin nhắn
               </h3>
               <div className="flex-1 overflow-hidden">
                 <MqttChatBox
@@ -220,7 +218,7 @@ export default function MqttClientPage() {
         <div className="md:hidden flex-1 flex flex-col bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg overflow-hidden">
           <h3 className="text-xl font-semibold mb-3 flex items-center border-b border-gray-700 pb-2">
             <MessageCircleMore className="text-cyan-300 mr-2" />
-            Chat
+            Tin nhắn
           </h3>
           <div className="flex-1 overflow-hidden">
             <MqttChatBox

@@ -38,22 +38,23 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
           aria-label="Open connection settings"
         >
           <Settings size={18} className="animate-pulse" />
-          Settings
+          Thiết lập kết nối
         </Button>
-        {connection && (
-          <Button
-            onClick={isConnected ? onDisconnect : () => onConnect(connection.options)}
-            className={`flex items-center gap-2 font-semibold px-4 py-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg ${
-              isConnected
-                ? "bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white hover:shadow-red-500/50"
-                : "bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white hover:shadow-green-500/50"
-            }`}
-            aria-label={isConnected ? "Disconnect from broker" : "Connect to broker"}
-          >
-            <Wifi size={18} className="animate-pulse" />
-            {isConnected ? "Disconnect" : "Connect"}
-          </Button>
-        )}
+        <div
+          className={`flex items-center gap-2 px-3 py-1 rounded-full border text-sm ${
+            isConnected
+              ? "border-green-500 bg-green-950 text-green-300"
+              : "border-red-500 bg-red-950 text-red-300"
+          }`}
+        >
+          <Wifi
+            size={14}
+            className={
+              isConnected ? "animate-pulse text-green-400" : "text-red-400"
+            }
+          />
+          {isConnected ? "Đã kết nối" : "Chưa kết nối"}
+        </div>
       </div>
 
       {/* Modal Form */}

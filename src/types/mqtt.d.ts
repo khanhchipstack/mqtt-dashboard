@@ -1,9 +1,50 @@
-// src/types/mqtt/mqtt.d.ts
-import { IClientOptions, IClientPublishOptions } from "mqtt";
+import { type IConnackPacket, type IDisconnectPacket, type IPublishPacket, type ISubscribePacket, type IUnsubscribePacket, type IConnectPacket, type QoS } from 'mqtt-packet';
+import { Buffer } from 'buffer';
 
-export type MqttProtocolVersion = 4 | 5; // 4 for MQTT 3.1.1, 5 for MQTT 5.0
+// Định nghĩa type cho các thuộc tính MQTT 5.0
+export interface Mqtt5ConnectProperties {
+  sessionExpiryInterval?: number;
+  receiveMaximum?: number;
+  maximumPacketSize?: number;
+  topicAliasMaximum?: number;
+  requestResponseInformation?: boolean;
+  requestProblemInformation?: boolean;
+  userProperties?: Record<string, string | string[]>;
+  cleanStart?: boolean;
+}
 
-// Custom type for connection options to simplify our form
+export interface Mqtt5WillProperties {
+  willDelayInterval?: number;
+  messageExpiryInterval?: number;
+  contentType?: string;
+  responseTopic?: string;
+  correlationData?: Buffer; // Changed to Buffer | undefined
+  payloadFormatIndicator?: boolean;
+  userProperties?: Record<string, string | string[]>;
+}
+export type PayloadFormat = "plaintext" | "json" | "hex" | "base64";
+export interface Mqtt5PublishProperties {
+  payloadFormatIndicator?: boolean;
+  messageExpiryInterval?: number;
+  topicAlias?: number; // Bổ sung thiếu
+  contentType?: string;
+  responseTopic?: string;
+  correlationData?: Buffer;
+  userProperties?: Record<string, string | string[]>;
+  subscriptionIdentifier?: number | number[]; 
+}
+
+// Định nghĩa type cho cấu hình kết nối MQTT
+export interface MqttWillProperties {
+  willDelayInterval?: number;
+  messageExpiryInterval?: number;
+  contentType?: string;
+  responseTopic?: string;
+  correlationData?: Buffer | string; // Buffer for MQTT.js, string for UI
+  payloadFormatIndicator?: boolean;
+  userProperties?: { [key: string]: string };
+}
+
 export interface MqttConnectionOptions {
   protocol: "mqtt" | "mqtts" | "ws" | "wss";
   host: string;
@@ -13,87 +54,77 @@ export interface MqttConnectionOptions {
   password?: string;
   clean?: boolean;
   keepalive?: number;
-  connectTimeout?: number; // in milliseconds
-  reconnectPeriod?: number; // in milliseconds, 0 to disable
-  protocolVersion: MqttProtocolVersion;
-
-  // Will Message (Last Will and Testament)
+  connectTimeout?: number;
+  reconnectPeriod?: number;
+  protocolVersion?: 4 | 5;
+  properties?: {
+    cleanStart?: boolean;
+    sessionExpiryInterval?: number;
+    receiveMaximum?: number;
+    maximumPacketSize?: number;
+    topicAliasMaximum?: number;
+    requestResponseInformation?: boolean;
+    requestProblemInformation?: boolean;
+    userProperties?: { [key: string]: string };
+  };
   will?: {
     topic: string;
     payload: string;
     qos: 0 | 1 | 2;
     retain: boolean;
-    properties?: Mqtt5WillProperties;
+    properties?: MqttWillProperties;
   };
-
-  // SSL/TLS options
-  rejectUnauthorized?: boolean; // For self-signed certificates
-  ca?: string; // CA certificate as string (Base64 or plain text PEM)
-  cert?: string; // Client certificate as string (Base64 or plain text PEM)
-  key?: string; // Client key as string (Base64 or plain text PEM)
-
-  // MQTT 5.0 properties for CONNECT packet
-  properties?: Mqtt5ConnectProperties;
+  ca?: string;
+  cert?: string;
+  key?: string;
+  rejectUnauthorized?: boolean;
 }
 
-export interface Mqtt5WillProperties {
-  willDelayInterval?: number;
-  messageExpiryInterval?: number;
-  contentType?: string;
-  responseTopic?: string;
-  correlationData?: string; // Base64 encoded
-  payloadFormatIndicator?: boolean; // 0 for binary, 1 for UTF-8
-  userProperties?: { [key: string]: string };
-}
-
-export interface Mqtt5ConnectProperties {
-  sessionExpiryInterval?: number; // seconds
-  receiveMaximum?: number;
-  maximumPacketSize?: number;
-  topicAliasMaximum?: number;
-  requestResponseInformation?: boolean;
-  requestProblemInformation?: boolean;
-  userProperties?: { [key: string]: string };
-}
-
-export interface Mqtt5PublishProperties {
-  payloadFormatIndicator?: 0 | 1;
-  messageExpiryInterval?: number;
-  contentType?: string;
-  responseTopic?: string;
-  correlationData?: string; // Base64 encoded
-  userProperties?: { [key: string]: string };
-}
-
-// Custom type for a received message
+// Định nghĩa type cho tin nhắn MQTT
 export interface MqttMessage {
-  id: string; // NEW: Unique ID for the message
+  id: string;
   topic: string;
-  message: string; // Original string payload
-  parsedPayload?: any; // Parsed object if JSON, otherwise undefined
-  qos: 0 | 1 | 2;
+  message: string;
+  parsedPayload: any;
+  qos: QoS;
   timestamp: string;
-  isPublished?: boolean; // True if this message was published by this client (for display)
-  size: number; // Size in bytes
+  size: number;
+  isPublished?: boolean;
+  color: string; // Thêm thuộc tính color để xác định màu sắc của topic
 }
 
-// Custom type for subscription
+// Định nghĩa type cho subscribe options
 export interface SubscribeOptions {
-  id: string; // NEW: Unique ID for the subscription
+  id: string;
   topic: string;
-  qos: 0 | 1 | 2;
-  alias?: string; // User-defined name for the subscription in UI
-  color?: string; // Color for UI
+  qos: QoS;
+  alias?: string;
+  nl?: boolean;
+  rap?: boolean;
+  rh?: number;
+  properties?: ISubscribePacket['properties'];
+
+  color?: string; // Thêm thuộc tính color để xác định màu sắc của topic
 }
 
-// Custom type for publish
-export type PayloadFormat = "plaintext" | "json" | "hex" | "base64";
-
+// Định nghĩa type cho publish options
 export interface PublishOptions {
   topic: string;
   payload: string;
-  format: PayloadFormat;
-  qos: 0 | 1 | 2;
+  qos: QoS;
   retain: boolean;
-  properties?: Mqtt5PublishProperties;
+  format: 'plaintext' | 'json' | 'hex' | 'base64';
+  properties?: Mqtt5PublishProperties ;
+  
 }
+
+// Export các type từ mqtt-packet
+export type {
+  IConnackPacket,
+  IDisconnectPacket,
+  IPublishPacket,
+  ISubscribePacket,
+  IUnsubscribePacket,
+  IConnectPacket,
+  QoS,
+};
